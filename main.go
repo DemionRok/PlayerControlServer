@@ -9,51 +9,51 @@ import (
 
 const potPlayerPath = `C:/Program Files/DAUM/PotPlayer`
 
+var potPlayerProcess *exec.Cmd
+
+func startPotPlayer() {
+	potPlayerProcess = exec.Command(potPlayerPath)
+	err := potPlayerProcess.Start()
+	if err != nil {
+		log.Println("Error starting PotPlayer:", err)
+	}
+}
+
 func handleCommand(w http.ResponseWriter, r *http.Request) {
 	command := r.URL.Query().Get("command")
 
+	if potPlayerProcess == nil || potPlayerProcess.Process == nil {
+		startPotPlayer()
+	}
+
 	switch command {
 	case "play":
-		if runtime.GOOS == "windows" {
-			exec.Command(potPlayerPath, "PotPlayerMini64.exe /play").Start()
-		} else {
-			log.Println("Unsupported OS")
-			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
-		}
+		sendCommandToPotPlayer("/play")
 	case "pause":
-		if runtime.GOOS == "windows" {
-			exec.Command(potPlayerPath, "PotPlayerMini64.exe /pause").Start()
-		} else {
-			log.Println("Unsupported OS")
-			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
-		}
+		sendCommandToPotPlayer("/pause")
 	case "stop":
-		if runtime.GOOS == "windows" {
-			exec.Command(potPlayerPath, "PotPlayerMini64.exe /stop").Start()
-		} else {
-			log.Println("Unsupported OS")
-			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
-		}
+		sendCommandToPotPlayer("/stop")
 	case "volumeUp":
-		if runtime.GOOS == "windows" {
-			exec.Command(potPlayerPath, "PotPlayerMini64.exe /vol_up").Start()
-		} else {
-			log.Println("Unsupported OS")
-			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
-		}
+		sendCommandToPotPlayer("/vol_up")
 	case "volumeDown":
-		if runtime.GOOS == "windows" {
-			exec.Command(potPlayerPath, "PotPlayerMini64.exe /vol_down").Start()
-		} else {
-			log.Println("Unsupported OS")
-			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
-		}
+		sendCommandToPotPlayer("/vol_down")
 	default:
 		http.Error(w, "Invalid command", http.StatusBadRequest)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func sendCommandToPotPlayer(command string) {
+	if runtime.GOOS == "windows" {
+		err := exec.Command("cmd", "/C", "echo "+command+">"+potPlayerPath+".control").Run()
+		if err != nil {
+			log.Println("Error sending command to PotPlayer:", err)
+		}
+	} else {
+		log.Println("Unsupported operating system")
+	}
 }
 
 func main() {
