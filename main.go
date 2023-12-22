@@ -1,64 +1,108 @@
 package main
 
 import (
+	"github.com/micmonay/keybd_event"
 	"log"
 	"net/http"
-	"os/exec"
 	"runtime"
 )
 
-const potPlayerPath = `C:/Program Files/DAUM/PotPlayer`
-
-var potPlayerProcess *exec.Cmd
-
-func startPotPlayer() {
-	potPlayerProcess = exec.Command(potPlayerPath)
-	err := potPlayerProcess.Start()
+func sendKey(keyCode ...int) {
+	kb, err := keybd_event.NewKeyBonding()
 	if err != nil {
-		log.Println("Error starting PotPlayer:", err)
+		log.Fatal(err)
+		return
+	}
+
+	for _, key := range keyCode {
+		kb.SetKeys(key)
+		err := kb.Press()
+		if err != nil {
+			log.Println("Press error:", err)
+			return
+		}
+	}
+
+	for _, keyCode := range keyCode {
+		kb.SetKeys(keyCode)
+		err := kb.Release()
+		if err != nil {
+			log.Println("Release error:", err)
+			return
+		}
 	}
 }
 
 func handleCommand(w http.ResponseWriter, r *http.Request) {
 	command := r.URL.Query().Get("command")
 
-	if potPlayerProcess == nil || potPlayerProcess.Process == nil {
-		startPotPlayer()
-	}
-
 	switch command {
-	case "play":
-		sendCommandToPotPlayer("/play")
-	case "pause":
-		sendCommandToPotPlayer("/pause")
-	case "stop":
-		sendCommandToPotPlayer("/stop")
+	case "startPause":
+		if runtime.GOOS == "windows" {
+			sendKey(keybd_event.VK_LMENU, keybd_event.VK_HOME)
+		} else {
+			log.Println("Unsupported OS")
+			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
+			return
+		}
+	case "moveForward":
+		if runtime.GOOS == "windows" {
+			sendKey(keybd_event.VK_LMENU, keybd_event.VK_RIGHT)
+		} else {
+			log.Println("Unsupported OS")
+			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
+		}
+	case "moveBackward":
+		if runtime.GOOS == "windows" {
+			sendKey(keybd_event.VK_LMENU, keybd_event.VK_LEFT)
+		} else {
+			log.Println("Unsupported OS")
+			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
+		}
 	case "volumeUp":
-		sendCommandToPotPlayer("/vol_up")
+		if runtime.GOOS == "windows" {
+			sendKey(keybd_event.VK_LMENU, keybd_event.VK_UP)
+		} else {
+			log.Println("Unsupported OS")
+			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
+			return
+		}
 	case "volumeDown":
-		sendCommandToPotPlayer("/vol_down")
+		if runtime.GOOS == "windows" {
+			sendKey(keybd_event.VK_LMENU, keybd_event.VK_DOWN)
+		} else {
+			log.Println("Unsupported OS")
+			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
+			return
+		}
+	case "nextFile":
+		if runtime.GOOS == "windows" {
+			sendKey(keybd_event.VK_LMENU, keybd_event.VK_PAGEDOWN)
+		} else {
+			log.Println("Unsupported OS")
+			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
+			return
+		}
+	case "prevFile":
+		if runtime.GOOS == "windows" {
+			sendKey(keybd_event.VK_LMENU, keybd_event.VK_PAGEUP)
+		} else {
+			log.Println("Unsupported OS")
+			http.Error(w, "Unsupported OS", http.StatusInternalServerError)
+			return
+		}
 	default:
 		http.Error(w, "Invalid command", http.StatusBadRequest)
 		return
 	}
 
+	log.Println("Command executed:", command)
 	w.WriteHeader(http.StatusOK)
 }
 
-func sendCommandToPotPlayer(command string) {
-	if runtime.GOOS == "windows" {
-		err := exec.Command("cmd", "/C", "echo "+command+">"+potPlayerPath+".control").Run()
-		if err != nil {
-			log.Println("Error sending command to PotPlayer:", err)
-		}
-	} else {
-		log.Println("Unsupported operating system")
-	}
-}
-
 func main() {
-	http.HandleFunc("/api/potplayer", handleCommand)
+	http.HandleFunc("/api/wmp", handleCommand)
 
 	log.Println("Server is running on port 8080...")
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe("192.168.1.103:8080", nil))
 }
